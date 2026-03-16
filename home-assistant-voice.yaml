@@ -268,6 +268,40 @@ switch:
       # If 15 minutes have passed and the timer is still ringing, stop it.
       - delay: 15min
       - switch.turn_off: timer_ringing
+  # Per-model wake word switches
+  - platform: template
+    id: wake_word_okay_nabu
+    name: "Wake word: Okay Nabu"
+    icon: "mdi:account-voice"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - micro_wake_word.enable_model: okay_nabu
+    on_turn_off:
+      - micro_wake_word.disable_model: okay_nabu
+  - platform: template
+    id: wake_word_hey_jarvis
+    name: "Wake word: Hey Jarvis"
+    icon: "mdi:account-voice"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - micro_wake_word.enable_model: hey_jarvis
+    on_turn_off:
+      - micro_wake_word.disable_model: hey_jarvis
+  - platform: template
+    id: wake_word_hey_mycroft
+    name: "Wake word: Hey Mycroft"
+    icon: "mdi:account-voice"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_on:
+      - micro_wake_word.enable_model: hey_mycroft
+    on_turn_off:
+      - micro_wake_word.disable_model: hey_mycroft
   - platform: gpio
     pin: GPIO47
     id: internal_speaker_amp
@@ -970,6 +1004,15 @@ power_supply:
     pin: GPIO45
 
 sensor:
+  # Next active timer - seconds remaining, exposed to HA
+  - platform: template
+    id: next_timer
+    name: "Next timer"
+    update_interval: never
+    device_class: duration
+    unit_of_measurement: s
+    icon: "mdi:timer"
+
   # The dial. Used to control volume and Hue of the LED ring.
   - platform: rotary_encoder
     id: dial
@@ -1020,6 +1063,12 @@ sensor:
                   - script.execute:
                       id: control_hue
                       increase_hue: false
+
+text_sensor:
+  - platform: template
+    id: next_timer_name
+    name: "Next timer name"
+    icon: "mdi:timer"
 
 event:
   # Event entity exposed to the user to automate on complex center button presses.
@@ -1481,6 +1530,27 @@ script:
               .set_media_url("audio-file://" + sound_file)
               .set_announcement(true)
               .perform();
+          }
+
+  # Publish timer state to HA sensors
+  - id: publish_timer_sensors
+    then:
+      - lambda: |
+          const auto &timers = id(va).get_timers();
+          bool found = false;
+          voice_assistant::Timer nearest;
+          for (const auto &timer : timers) {
+            if (timer.is_active && (!found || timer.seconds_left < nearest.seconds_left)) {
+              nearest = timer;
+              found = true;
+            }
+          }
+          if (found) {
+            id(next_timer).publish_state(nearest.seconds_left);
+            id(next_timer_name).publish_state(nearest.name);
+          } else {
+            id(next_timer).publish_state(NAN);
+            id(next_timer_name).publish_state("");
           }
 
   # Script used to fetch the first active timer (Stored in global first_active_timer)
@@ -1949,14 +2019,19 @@ voice_assistant:
     - script.execute: control_leds
   on_timer_finished:
     - switch.turn_on: timer_ringing
+    - script.execute: publish_timer_sensors
   on_timer_started:
     - script.execute: control_leds
+    - script.execute: publish_timer_sensors
   on_timer_cancelled:
     - script.execute: control_leds
+    - script.execute: publish_timer_sensors
   on_timer_updated:
     - script.execute: control_leds
+    - script.execute: publish_timer_sensors
   on_timer_tick:
     - script.execute: control_leds
+    - script.execute: publish_timer_sensors
 
 button:
   - platform: factory_reset
