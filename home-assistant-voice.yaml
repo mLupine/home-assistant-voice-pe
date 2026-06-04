@@ -1677,6 +1677,8 @@ sendspin:
   id: sendspin_hub
   task_stack_in_psram: false
 
+http_request:
+
 audio_file:
   - id: center_button_press_sound
     file: ${center_button_press_sound_file}
@@ -1714,10 +1716,10 @@ audio_file:
 media_source:
   - platform: audio_file
     id: audio_file_announcement_source
-  - platform: audio_http
+  - platform: http_request
     id: http_announcement_source
     buffer_size: 250000
-  - platform: audio_http
+  - platform: http_request
     id: http_media_source
     buffer_size: 500000
   - platform: sendspin
@@ -1793,6 +1795,13 @@ external_components:
     components:
       - voice_kit
     refresh: 0s
+  - source:
+      # Legacy HTTP media source; avoids ESPHome 2026.5 audio_http/microDecoder crash path
+      type: git
+      url: https://github.com/esphome/esphome
+      ref: b49b09b6ae56502aa3ce51be86f90d732d019b2c
+    refresh: 0s
+    components: [http_request]
 
 audio_dac:
   - platform: aic3204
