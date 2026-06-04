@@ -1717,9 +1717,11 @@ media_source:
   - platform: audio_http
     id: http_announcement_source
     buffer_size: 250000
+    task_stack_in_psram: true
   - platform: audio_http
     id: http_media_source
     buffer_size: 500000
+    task_stack_in_psram: true
   - platform: sendspin
     id: sendspin_media_source
     fixed_delay: 480 microseconds  # The AIC3204 DAC used, as configured, on the VPE delays audio by 480 microseconds
